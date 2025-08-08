@@ -1,22 +1,36 @@
-version: '3.8'
-
 services:
-  # Arctic Region App
+  # Arctic Region App - Production
   arctic-app:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
+      - PORT=3000
     restart: unless-stopped
     container_name: arctic-region-app
     networks:
       - arctic-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
 
-  # Development version (optional)
+  # Development version
   arctic-dev:
     build:
       context: .
@@ -26,16 +40,35 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
+      - PORT=3000
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/.next
     restart: unless-stopped
     container_name: arctic-region-dev
     profiles:
       - dev
     networks:
       - arctic-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
 
 networks:
   arctic-network:
-    driver: bridge 
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 

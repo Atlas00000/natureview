@@ -1,13 +1,13 @@
 # Development Dockerfile
 FROM node:18-alpine
 
-# Install pnpm globally
-RUN npm install -g pnpm
+# Install pnpm globally and curl for health checks
+RUN npm install -g pnpm && apk add --no-cache curl
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better caching
 COPY package.json pnpm-lock.yaml* ./
 
 # Install dependencies
@@ -16,8 +16,22 @@ RUN pnpm install
 # Copy source code
 COPY . .
 
+# Create a non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Change ownership of the app directory
+RUN chown -R nextjs:nodejs /app
+
+# Switch to non-root user
+USER nextjs
+
 # Expose port
 EXPOSE 3000
 
-# Start development server
-CMD ["pnpm", "dev"] 
+# Health check for development
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000 || exit 1
+
+# Start development server with host binding for Docker
+CMD ["pnpm", "dev", "--hostname", "0.0.0.0"] 
